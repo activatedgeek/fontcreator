@@ -7,11 +7,38 @@
 //Defines the density of horizontal and vertical lines
 #define WIDTH_STEP 5
 #define HEIGHT_STEP 5
+#define CURR_STATUS "Currently editing character:   \'"
 
 using namespace std;
 
-//Location variables
+string additions="";
+
+//For combined functionality with arrow keys: true = leftmousebutton
+bool buttonType;
+
+//Location pointers
 int xLoc, yLoc;
+
+void printString(const char *str, int x, int y)
+{
+    glPushAttrib(GL_LIGHTING_BIT | GL_CURRENT_BIT); 
+    glDisable(GL_LIGHTING);
+    glDisable(GL_TEXTURE_2D);
+
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);          
+    glRasterPos2i(x, y);
+
+    // loop all characters in the string
+    while(*str)
+    {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *str);
+        ++str;
+    }
+
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_LIGHTING);
+    glPopAttrib();
+}
 
 void init(void){
 glClearColor (0.0, 0.0, 0.0, 0.0);
@@ -23,7 +50,7 @@ void colorPoint(int button){
 glPointSize(3.0f);
 
 if(button == GLUT_LEFT_BUTTON){
-  glColor3ub(255, 0, 0);
+	glColor3ub(255, 0, 0);
 glBegin(GL_POINTS);
 	glVertex2f(xLoc, yLoc);
 glEnd();
@@ -60,36 +87,66 @@ glEnd();
 
 }
 
-/*
-void draw(){
-glEnable(GL_BLEND); 
-glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-glEnable(GL_LINE_SMOOTH);
-glHint(GL_LINE_SMOOTH_HINT, GL_NICEST); 
-
-glColor3f(1.0f, 0.0f, 1.0f);	
-glLineWidth(2.0f);
-glBegin(GL_LINES);
-glVertex2f(xLoc1, yLoc1);
-glVertex2f(xLoc2, yLoc2);
-glEnd();
-
-glutSwapBuffers();
-
-}
-*/
-
-void key(unsigned char key, int x, int y){
+//Post redisplay is necessary
+void keyboard(unsigned char key, int x, int y){
+additions.clear();
+additions = key;
 
 if (key == 27){
 	exit(0);
 }	
-
-//Reset the screen by clearing the buffer bit
-if(key == 'r' || key == 'R'){
-	glClear(GL_COLOR_BUFFER_BIT);
-	glutPostRedisplay();
+else if(key == 32){
+	
 }
+
+glutPostRedisplay();
+}
+
+//In the arrow keys, it works without 
+void processModifiers(int key, int x, int y){
+	if(key == GLUT_KEY_F5){
+		glClear(GL_COLOR_BUFFER_BIT);
+		additions="";
+		glutPostRedisplay();
+	}
+	else if(key == 'r' || key == 'R'){
+		int mod = glutGetModifiers();
+		if(mod == GLUT_ACTIVE_CTRL)
+			glClear(GL_COLOR_BUFFER_BIT);
+		additions="";
+		glutPostRedisplay();
+	}
+	else if(key == GLUT_KEY_LEFT){
+		xLoc -= WIDTH_STEP;
+		if(buttonType == true)
+			colorPoint(GLUT_LEFT_BUTTON);
+		else
+			colorPoint(GLUT_RIGHT_BUTTON);
+	}
+	
+	else if(key == GLUT_KEY_UP){
+		yLoc += HEIGHT_STEP;
+		if(buttonType == true)
+			colorPoint(GLUT_LEFT_BUTTON);
+		else
+			colorPoint(GLUT_RIGHT_BUTTON);
+	}
+	
+	else if(key == GLUT_KEY_RIGHT){
+		xLoc += WIDTH_STEP;
+		if(buttonType == true)
+			colorPoint(GLUT_LEFT_BUTTON);
+		else
+			colorPoint(GLUT_RIGHT_BUTTON);
+	}
+	
+	else if(key == GLUT_KEY_DOWN){
+		yLoc -= HEIGHT_STEP;
+		if(buttonType == true)
+			colorPoint(GLUT_LEFT_BUTTON);
+		else
+			colorPoint(GLUT_RIGHT_BUTTON);
+	}
 
 }
 
@@ -99,12 +156,21 @@ void mouse(int button, int state, int x , int y){
 int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
 int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
 
-	if(button==GLUT_LEFT_BUTTON || button == GLUT_RIGHT_BUTTON){
+	if(button==GLUT_LEFT_BUTTON){
+		buttonType =true;
 		if(state==GLUT_DOWN){
 		xLoc = actX;
 		yLoc = actY;
 		colorPoint(button);
+		}
 	}
+	else if(button==GLUT_RIGHT_BUTTON){
+		buttonType =false;
+		if(state==GLUT_DOWN){
+		xLoc = actX;
+		yLoc = actY;
+		colorPoint(button);
+		}
 	}
 		
 }
@@ -117,6 +183,17 @@ glEnable(GL_LINE_SMOOTH);
 glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);  
 
 baseGrid();
+
+glPushMatrix();
+	glLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();                  // save current projection matrix
+		glLoadIdentity();                // reset projection matrix
+		gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
+		string finalDisp = CURR_STATUS + additions +string("\'");
+		printString(finalDisp.c_str(), glutGet(GLUT_WINDOW_WIDTH)-325, glutGet(GLUT_WINDOW_HEIGHT) - 30);
+	glPopMatrix();
+glPopMatrix();
 
 glutSwapBuffers();
 }
@@ -131,7 +208,10 @@ glLoadIdentity();
 }
 
 void passive(int x, int y){
+//int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
+//int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
 
+//cout<<actX<<" "<<actY<<endl;
 }
 
 int main(int arg, char **args){
@@ -145,9 +225,11 @@ init();
 
 glutDisplayFunc(display);
 glutReshapeFunc(reshape);
-glutKeyboardFunc(key);
+glutKeyboardFunc(keyboard);
+glutSpecialFunc(processModifiers);	
 glutMouseFunc(mouse);
 glutPassiveMotionFunc(passive);
 glutMainLoop();
+
 return 0;
 }
