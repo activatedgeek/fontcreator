@@ -10,11 +10,8 @@
 
 using namespace std;
 
-//Location pointers
+//Location variables
 int xLoc, yLoc;
-
-//Checks the state of operation, first click done or not, first click done then true
-bool start = false, carry=false;
 
 void init(void){
 glClearColor (0.0, 0.0, 0.0, 0.0);
