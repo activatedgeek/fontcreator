@@ -184,11 +184,12 @@ glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
 baseGrid();
 
+//Necessary to set an orthographic projection into 2D to draw the string
 glPushMatrix();
 	glLoadIdentity();
 	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();                  // save current projection matrix
-		glLoadIdentity();                // reset projection matrix
+	glPushMatrix();                  
+		glLoadIdentity(); 
 		gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
 		string finalDisp = CURR_STATUS + additions +string("\'");
 		printString(finalDisp.c_str(), glutGet(GLUT_WINDOW_WIDTH)-325, glutGet(GLUT_WINDOW_HEIGHT) - 30);
