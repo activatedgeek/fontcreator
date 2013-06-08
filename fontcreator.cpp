@@ -9,6 +9,11 @@
 #define HEIGHT_STEP 5
 #define CURR_STATUS "Currently editing character:   \'"
 
+//Parameters for frame location & size
+#define X_OFFSET 303 
+#define Y_OFFSET 612
+#define FRAME_SIZE 480
+
 using namespace std;
 
 string additions="";
@@ -25,7 +30,7 @@ void printString(const char *str, int x, int y)
     glDisable(GL_LIGHTING);
     glDisable(GL_TEXTURE_2D);
 
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);          
+    glColor4f(0.0f, 1.0f, 1.0f, 1.0f);          
     glRasterPos2i(x, y);
 
     // loop all characters in the string
@@ -43,6 +48,27 @@ void printString(const char *str, int x, int y)
 void init(void){
 glClearColor (0.0, 0.0, 0.0, 0.0);
 }
+
+//Set the drawing frame boundaries
+void frameSet(){
+	glColor3ub(255, 0, 255);
+	glPointSize(3.0f);
+glBegin(GL_POINTS);
+	for(int i=X_OFFSET; i-X_OFFSET<=FRAME_SIZE ; i+=WIDTH_STEP)
+		glVertex2f(i, Y_OFFSET);
+	for(int i=Y_OFFSET; Y_OFFSET-i<=FRAME_SIZE ; i-=HEIGHT_STEP)
+		glVertex2f(X_OFFSET, i);
+	for(int i=X_OFFSET; i-X_OFFSET<=FRAME_SIZE ; i+=WIDTH_STEP)
+		glVertex2f(i, Y_OFFSET-FRAME_SIZE);
+	for(int i=Y_OFFSET; Y_OFFSET-i<=FRAME_SIZE ; i-=HEIGHT_STEP)
+		glVertex2f(X_OFFSET+FRAME_SIZE, i);
+glEnd();
+
+//Swap buffer necessary to display the new pixels
+glutSwapBuffers();
+}
+
+
 
 //Draw a point
 void colorPoint(int button){
@@ -116,7 +142,8 @@ void processModifiers(int key, int x, int y){
 		additions="";
 		glutPostRedisplay();
 	}
-	else if(key == GLUT_KEY_LEFT){
+
+	if(key == GLUT_KEY_LEFT && xLoc-WIDTH_STEP!=X_OFFSET){
 		xLoc -= WIDTH_STEP;
 		if(buttonType == true)
 			colorPoint(GLUT_LEFT_BUTTON);
@@ -124,7 +151,7 @@ void processModifiers(int key, int x, int y){
 			colorPoint(GLUT_RIGHT_BUTTON);
 	}
 	
-	else if(key == GLUT_KEY_UP){
+	else if(key == GLUT_KEY_UP && yLoc+HEIGHT_STEP!=Y_OFFSET){
 		yLoc += HEIGHT_STEP;
 		if(buttonType == true)
 			colorPoint(GLUT_LEFT_BUTTON);
@@ -132,7 +159,7 @@ void processModifiers(int key, int x, int y){
 			colorPoint(GLUT_RIGHT_BUTTON);
 	}
 	
-	else if(key == GLUT_KEY_RIGHT){
+	else if(key == GLUT_KEY_RIGHT && xLoc+WIDTH_STEP!=X_OFFSET+FRAME_SIZE){
 		xLoc += WIDTH_STEP;
 		if(buttonType == true)
 			colorPoint(GLUT_LEFT_BUTTON);
@@ -140,7 +167,7 @@ void processModifiers(int key, int x, int y){
 			colorPoint(GLUT_RIGHT_BUTTON);
 	}
 	
-	else if(key == GLUT_KEY_DOWN){
+	else if(key == GLUT_KEY_DOWN && yLoc-HEIGHT_STEP!=Y_OFFSET-FRAME_SIZE){
 		yLoc -= HEIGHT_STEP;
 		if(buttonType == true)
 			colorPoint(GLUT_LEFT_BUTTON);
@@ -149,13 +176,13 @@ void processModifiers(int key, int x, int y){
 	}
 
 }
-
 void mouse(int button, int state, int x , int y){
 	
 //Calculations a little hit and trial, need to work out more until better solution
 int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
 int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
 
+if(actX != X_OFFSET && actY != Y_OFFSET){
 	if(button==GLUT_LEFT_BUTTON){
 		buttonType =true;
 		if(state==GLUT_DOWN){
@@ -171,10 +198,12 @@ int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HE
 		yLoc = actY;
 		colorPoint(button);
 		}
-	}
+    }
+}
 		
 }
 
+//Main display on Context
 void display(void){
 glClear(GL_COLOR_BUFFER_BIT);
 glEnable(GL_BLEND); 
@@ -183,13 +212,13 @@ glEnable(GL_LINE_SMOOTH);
 glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);  
 
 baseGrid();
+frameSet();
 
-//Necessary to set an orthographic projection into 2D to draw the string
 glPushMatrix();
 	glLoadIdentity();
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();                  
-		glLoadIdentity(); 
+		glLoadIdentity();            
 		gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
 		string finalDisp = CURR_STATUS + additions +string("\'");
 		printString(finalDisp.c_str(), glutGet(GLUT_WINDOW_WIDTH)-325, glutGet(GLUT_WINDOW_HEIGHT) - 30);
@@ -209,10 +238,10 @@ glLoadIdentity();
 }
 
 void passive(int x, int y){
-//int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
-//int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
+int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
+int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
 
-//cout<<actX<<" "<<actY<<endl;
+cout<<actX<<" "<<actY<<endl;
 }
 
 int main(int arg, char **args){
