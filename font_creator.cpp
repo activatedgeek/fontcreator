@@ -1,4 +1,6 @@
+#include "timer.h"
 #include<iostream>
+#include<vector>
 #include<GL/glew.h>
 #include<GL/gl.h>
 #include<GL/glu.h>
@@ -8,21 +10,54 @@
 #define WIDTH_STEP 5
 #define HEIGHT_STEP 5
 #define CURR_STATUS "Currently editing character:   \'"
-
-//Parameters for frame location & size
 #define X_OFFSET 303 
 #define Y_OFFSET 612
-#define FRAME_SIZE 480
+#define FRAME_SIZE 485
 
 using namespace std;
 
-string additions="";
+Timer timer;
+string currKey="[]";
+
+//Current editing raster
+vector<vector<int> > currRaster;
 
 //For combined functionality with arrow keys: true = leftmousebutton
 bool buttonType;
 
 //Location pointers
 int xLoc, yLoc;
+
+
+//Dropping points off a vector row (on right mouse clicks)
+bool findAndErase(vector<int> *array, int num){
+	
+if(!(*array).empty()){
+	
+	for(int i=0; i<(*array).size();i++){
+		if((*array)[i] == num){
+			(*array).erase((*array).begin() + i);
+			return true;
+		}
+	}
+}
+
+return false;
+}
+
+//Get the bitstream for each row
+string getBitString(vector<int> rowPoints){
+string rowBits="";
+for(int i = X_OFFSET; i<X_OFFSET+FRAME_SIZE-WIDTH_STEP; i+=WIDTH_STEP){
+	rowBits+="0";
+}
+
+for(int i=0;i<rowPoints.size();i++){
+	rowBits.replace((rowPoints[i]-X_OFFSET)/WIDTH_STEP, 1, "1");
+}
+
+return rowBits;
+}
 
 void printString(const char *str, int x, int y)
 {
@@ -58,7 +93,7 @@ glBegin(GL_POINTS);
 		glVertex2f(i, Y_OFFSET);
 	for(int i=Y_OFFSET; Y_OFFSET-i<=FRAME_SIZE ; i-=HEIGHT_STEP)
 		glVertex2f(X_OFFSET, i);
-	for(int i=X_OFFSET; i-X_OFFSET<=FRAME_SIZE ; i+=WIDTH_STEP)
+	for(int i=X_OFFSET; i-X_OFFSET<=FRAME_SIZE; i+=WIDTH_STEP)
 		glVertex2f(i, Y_OFFSET-FRAME_SIZE);
 	for(int i=Y_OFFSET; Y_OFFSET-i<=FRAME_SIZE ; i-=HEIGHT_STEP)
 		glVertex2f(X_OFFSET+FRAME_SIZE, i);
@@ -67,7 +102,6 @@ glEnd();
 //Swap buffer necessary to display the new pixels
 glutSwapBuffers();
 }
-
 
 
 //Draw a point
@@ -82,8 +116,22 @@ glBegin(GL_POINTS);
 glEnd();
 }
 else if(button == GLUT_RIGHT_BUTTON){
-	glColor3f(0.0, 0.0, 0.0);
-	glBegin(GL_POINTS);
+	glColor3f(0.0f, 0.0f, 1.0f);
+glBegin(GL_POINTS);
+	glVertex2f(xLoc, yLoc);
+glEnd();
+
+glutSwapBuffers();	
+
+timer.start();
+	while(1){
+		if(timer.getElapsedTime(MILLISEC) == 50){
+			timer.stop();
+			break;
+		}
+	}
+glColor3f(0.0, 0.0, 0.0);
+glBegin(GL_POINTS);
 	glVertex2f(xLoc, yLoc);
 glEnd();
 }
@@ -115,80 +163,119 @@ glEnd();
 
 //Post redisplay is necessary
 void keyboard(unsigned char key, int x, int y){
-additions.clear();
-additions = key;
+currKey.clear();
+currKey = key;
 
 if (key == 27){
 	exit(0);
-}	
-else if(key == 32){
-	
 }
 
 glutPostRedisplay();
 }
 
-//In the arrow keys, it works without 
+//In the arrow keys, 
 void processModifiers(int key, int x, int y){
 	if(key == GLUT_KEY_F5){
+		//Reset the screen data for the same character
+		currRaster.clear();
+		for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
+			currRaster.push_back(vector<int>());
 		glClear(GL_COLOR_BUFFER_BIT);
-		additions="";
 		glutPostRedisplay();
 	}
+	
+	//Save the raster parameters and clear the raster vector array
+	else if( key == GLUT_KEY_END){
+		//Save parameters and then save....
+			currRaster.clear();
+			for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
+				currRaster.push_back(vector<int>());
+			currKey = "[]";
+		glutPostRedisplay();
+	}
+	
+	//Reset the whole program
 	else if(key == 'r' || key == 'R'){
 		int mod = glutGetModifiers();
 		if(mod == GLUT_ACTIVE_CTRL)
 			glClear(GL_COLOR_BUFFER_BIT);
-		additions="";
+		currKey="[]";
+		currRaster.clear();
+		for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
+			currRaster.push_back(vector<int>());
 		glutPostRedisplay();
 	}
 
+	//Start movements from old position using arrow keys
 	if(key == GLUT_KEY_LEFT && xLoc-WIDTH_STEP!=X_OFFSET){
 		xLoc -= WIDTH_STEP;
-		if(buttonType == true)
+		int row = (yLoc - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+		if(buttonType == true){
+			currRaster[row].push_back(xLoc);
 			colorPoint(GLUT_LEFT_BUTTON);
-		else
+		}
+		else{
+			findAndErase(&currRaster[row], xLoc);
 			colorPoint(GLUT_RIGHT_BUTTON);
+		}
 	}
 	
 	else if(key == GLUT_KEY_UP && yLoc+HEIGHT_STEP!=Y_OFFSET){
 		yLoc += HEIGHT_STEP;
-		if(buttonType == true)
+		int row = (yLoc - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+		if(buttonType == true){
+			currRaster[row].push_back(xLoc);
 			colorPoint(GLUT_LEFT_BUTTON);
-		else
+		}
+		else{
+			findAndErase(&currRaster[row], xLoc);
 			colorPoint(GLUT_RIGHT_BUTTON);
+		}
 	}
 	
 	else if(key == GLUT_KEY_RIGHT && xLoc+WIDTH_STEP!=X_OFFSET+FRAME_SIZE){
 		xLoc += WIDTH_STEP;
-		if(buttonType == true)
+		int row = (yLoc - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+		if(buttonType == true){
+			currRaster[row].push_back(xLoc);
 			colorPoint(GLUT_LEFT_BUTTON);
-		else
+		}
+		else{
+			findAndErase(&currRaster[row], xLoc);
 			colorPoint(GLUT_RIGHT_BUTTON);
+		}
 	}
 	
 	else if(key == GLUT_KEY_DOWN && yLoc-HEIGHT_STEP!=Y_OFFSET-FRAME_SIZE){
 		yLoc -= HEIGHT_STEP;
-		if(buttonType == true)
+		int row = (yLoc - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+		if(buttonType == true){
+			currRaster[row].push_back(xLoc);
 			colorPoint(GLUT_LEFT_BUTTON);
-		else
+		}
+		else{
+			findAndErase(&currRaster[row], xLoc);
 			colorPoint(GLUT_RIGHT_BUTTON);
+		}
 	}
 
 }
+
 void mouse(int button, int state, int x , int y){
 	
 //Calculations a little hit and trial, need to work out more until better solution
 int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
 int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
 
-if(actX != X_OFFSET && actY != Y_OFFSET){
+if(actX > X_OFFSET && actX < X_OFFSET + FRAME_SIZE && actY < Y_OFFSET && actY > Y_OFFSET - FRAME_SIZE){
 	if(button==GLUT_LEFT_BUTTON){
 		buttonType =true;
 		if(state==GLUT_DOWN){
 		xLoc = actX;
 		yLoc = actY;
 		colorPoint(button);
+		int row = (actY - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+		currRaster[row].push_back(xLoc);
 		}
 	}
 	else if(button==GLUT_RIGHT_BUTTON){
@@ -197,6 +284,8 @@ if(actX != X_OFFSET && actY != Y_OFFSET){
 		xLoc = actX;
 		yLoc = actY;
 		colorPoint(button);
+		int row = (actY - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+		findAndErase(&currRaster[row], xLoc);
 		}
     }
 }
@@ -220,7 +309,7 @@ glPushMatrix();
 	glPushMatrix();                  
 		glLoadIdentity();            
 		gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
-		string finalDisp = CURR_STATUS + additions +string("\'");
+		string finalDisp = CURR_STATUS + currKey +string("\'");
 		printString(finalDisp.c_str(), glutGet(GLUT_WINDOW_WIDTH)-325, glutGet(GLUT_WINDOW_HEIGHT) - 30);
 	glPopMatrix();
 glPopMatrix();
@@ -238,13 +327,17 @@ glLoadIdentity();
 }
 
 void passive(int x, int y){
-int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
-int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
-
-cout<<actX<<" "<<actY<<endl;
+//int actX = WIDTH_STEP*((x - x%WIDTH_STEP)/WIDTH_STEP)+WIDTH_STEP-2;
+//int actY = HEIGHT_STEP*((glutGet(GLUT_WINDOW_HEIGHT)-y - (glutGet(GLUT_WINDOW_HEIGHT)-y)%HEIGHT_STEP)/HEIGHT_STEP)+HEIGHT_STEP-3;
+//int row = (actY - Y_OFFSET)/HEIGHT_STEP + FRAME_SIZE/HEIGHT_STEP - 1;
+//cout<<actX<<" "<<actY<<" row: "<<row<<endl;
 }
 
 int main(int arg, char **args){
+
+for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
+	currRaster.push_back(vector<int>());
+
 glutInit(&arg, args);
 glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
 glDisable(GL_DEPTH_TEST);
