@@ -1,10 +1,23 @@
+//Custom Headers
 #include "timer.h"
+#include "file_system.h"
+#include "md5.h"
+
+//C++ Standard headers
 #include<iostream>
 #include<vector>
+#include<fstream>
+#include<cstdlib>
+#include<cmath> 
+#include<cstdio>
+using namespace std;
+
+//OpenGL and Utility Headers
 #include<GL/glew.h>
 #include<GL/gl.h>
 #include<GL/glu.h>
 #include<GL/glut.h>
+
 
 //Defines the density of horizontal and vertical lines
 #define WIDTH_STEP 5
@@ -14,20 +27,22 @@
 #define Y_OFFSET 612
 #define FRAME_SIZE 485
 
-using namespace std;
 
+/***********************Active parameters*****************/
 Timer timer;
-string currKey="[]";
-
+string fontName;
+string currChar="[]";
+char currentEdit;
+fstream currFile;
+string currFilePath;
 //Current editing raster
 vector<vector<int> > currRaster;
-
 //For combined functionality with arrow keys: true = leftmousebutton
 bool buttonType;
 
 //Location pointers
 int xLoc, yLoc;
-
+/***********************Active parameters*****************/
 
 //Dropping points off a vector row (on right mouse clicks)
 bool findAndErase(vector<int> *array, int num){
@@ -45,20 +60,92 @@ if(!(*array).empty()){
 return false;
 }
 
+/************Operations for saving/editing file data***************/
 //Get the bitstream for each row
 string getBitString(vector<int> rowPoints){
 string rowBits="";
-for(int i = X_OFFSET; i<X_OFFSET+FRAME_SIZE-WIDTH_STEP; i+=WIDTH_STEP){
+
+for(int i = 1; i<FRAME_SIZE/WIDTH_STEP ; i++){
 	rowBits+="0";
 }
 
+if(rowPoints.empty())
+	return rowBits;
+
 for(int i=0;i<rowPoints.size();i++){
-	rowBits.replace((rowPoints[i]-X_OFFSET)/WIDTH_STEP, 1, "1");
+	rowBits.replace((rowPoints[i]-X_OFFSET)/WIDTH_STEP - 1, 1, "1");
 }
 
 return rowBits;
 }
 
+//Get an 8-bit binary into integer
+int decimal8Bit(string input){
+	if(input.length()!=8)
+		return 0;
+	
+	double num=0;
+	for(int i=0;i<8;i++){
+		if(input[i]!='0')
+			num += pow(2, 7-i);
+	}
+	return (int)num;
+}
+
+//Reset the data in the file for current character
+bool resetCharInFile(){
+	currFile.open(currFilePath.c_str(), ios::in);
+	if(!currFile.good())
+		return false;
+		
+	string temp;
+	fstream tempFile("temp~", ios::out | ios::app);
+	while(!currFile.eof()){
+		getline(currFile, temp);
+		if(temp[0] == '#' && temp[1] == currentEdit){
+			for(int i=0;i<FRAME_SIZE/WIDTH_STEP-1;i++)
+				getline(currFile, temp);
+		}
+		else if(temp!=""){
+			tempFile<<temp<<endl;
+		}
+	}
+	//tempFile<<endl;
+	currFile.close();
+	tempFile.close();
+	remove(currFilePath.c_str());
+	rename("temp~",currFilePath.c_str());
+	return true;
+}
+
+//Store the raster data into file
+bool resolveBitstoFile(){
+	resetCharInFile();
+	
+	currFile.open(currFilePath.c_str(), ios::out | ios::app);
+	if(!currFile.good())
+		return false;
+	string bitRow;
+	currFile<<"#"<<currentEdit<<endl;
+	for(int j=0;j< FRAME_SIZE/HEIGHT_STEP-1;j++){
+		bitRow = getBitString(currRaster[j]);
+		for(int i =0; i < bitRow.length()/8 ; i++)
+			currFile<<decimal8Bit(bitRow.substr(8*i,8))<<" ";
+				
+		currFile<<endl;
+	}
+	//currFile<<endl;
+	currFile.close();
+	currRaster.clear();
+	for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
+			currRaster.push_back(vector<int>());
+
+	return true;
+}
+
+/*****************Operations for saving/editing file***************/
+
+//Print string onto the screen
 void printString(const char *str, int x, int y)
 {
     glPushAttrib(GL_LIGHTING_BIT | GL_CURRENT_BIT); 
@@ -161,10 +248,11 @@ glEnd();
 
 }
 
+/******************User Interface Functions*******************/
 //Post redisplay is necessary
 void keyboard(unsigned char key, int x, int y){
-currKey.clear();
-currKey = key;
+currChar = key;
+currentEdit = key;
 
 if (key == 27){
 	exit(0);
@@ -173,7 +261,7 @@ if (key == 27){
 glutPostRedisplay();
 }
 
-//In the arrow keys, 
+
 void processModifiers(int key, int x, int y){
 	if(key == GLUT_KEY_F5){
 		//Reset the screen data for the same character
@@ -186,11 +274,10 @@ void processModifiers(int key, int x, int y){
 	
 	//Save the raster parameters and clear the raster vector array
 	else if( key == GLUT_KEY_END){
-		//Save parameters and then save....
-			currRaster.clear();
-			for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
-				currRaster.push_back(vector<int>());
-			currKey = "[]";
+		//Save parameters into the file and reset active parameters
+		resolveBitstoFile();
+		currChar = "[]";
+		glClear(GL_COLOR_BUFFER_BIT);
 		glutPostRedisplay();
 	}
 	
@@ -199,7 +286,7 @@ void processModifiers(int key, int x, int y){
 		int mod = glutGetModifiers();
 		if(mod == GLUT_ACTIVE_CTRL)
 			glClear(GL_COLOR_BUFFER_BIT);
-		currKey="[]";
+		currChar="[]";
 		currRaster.clear();
 		for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
 			currRaster.push_back(vector<int>());
@@ -291,6 +378,7 @@ if(actX > X_OFFSET && actX < X_OFFSET + FRAME_SIZE && actY < Y_OFFSET && actY > 
 }
 		
 }
+/******************User Interface Functions*******************/
 
 //Main display on Context
 void display(void){
@@ -309,7 +397,7 @@ glPushMatrix();
 	glPushMatrix();                  
 		glLoadIdentity();            
 		gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), 0, glutGet(GLUT_WINDOW_HEIGHT));
-		string finalDisp = CURR_STATUS + currKey +string("\'");
+		string finalDisp = CURR_STATUS + currChar +string("\'");
 		printString(finalDisp.c_str(), glutGet(GLUT_WINDOW_WIDTH)-325, glutGet(GLUT_WINDOW_HEIGHT) - 30);
 	glPopMatrix();
 glPopMatrix();
@@ -334,6 +422,11 @@ void passive(int x, int y){
 }
 
 int main(int arg, char **args){
+cout<<"Enter the name of the font: ";
+cin>>fontName;
+currFilePath = SXresolveDir(md5(fontName), FONTS);
+SXcreateDir(currFilePath, FONTS);
+currFilePath += fontName + string(".txt");
 
 for(int i=1; i< FRAME_SIZE/HEIGHT_STEP ; i++)
 	currRaster.push_back(vector<int>());
@@ -343,7 +436,8 @@ glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
 glDisable(GL_DEPTH_TEST);
 glutInitWindowPosition(0,0);
 glutInitWindowSize(1197,693);
-glutCreateWindow("snap");
+glutCreateWindow("Font Creator");
+glutSetCursor(GLUT_CURSOR_SPRAY);
 init();
 
 glutDisplayFunc(display);
