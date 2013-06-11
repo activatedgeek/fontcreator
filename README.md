@@ -1,6 +1,8 @@
 fontcreator
 ===========
 
+//Things left: Minor fixes to multiples pushes to vector
+
 A utility to create raster bits for fonts into openGL (Makefile for compile)
 
 Certain external utilities used:
