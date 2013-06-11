@@ -1,7 +1,10 @@
 fontcreator
 ===========
 
-//Things left: Minor fixes to multiples pushes to vector
+/*****************Things left****************************************************
+Minor fixes to multiples pushes to vector                                       *
+Currently using GLUT windowing system. Port to Qt/Windows for better interfacing*
+*********************************************************************************/
 
 A utility to create raster bits for fonts into openGL (Makefile for compile)
 
